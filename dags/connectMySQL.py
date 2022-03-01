@@ -53,7 +53,7 @@ create table if NOT EXISTS userApp (
     userid int,
     campaignID int,
     status varchar(15),
-    Expire varchar(15),
+    actualExpire DATETIME,
     PRIMARY KEY (userid,campaignID)
 );
 """

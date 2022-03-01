@@ -31,7 +31,7 @@ def T1_check_File(**context):
 
 
 with DAG(
-	dag_id = 'DEProject_Final',
+	dag_id = 'DEProject_3rd',
 	default_args = args,
 	schedule_interval = timedelta(days = 1),
 	start_date= datetime(year = 2021, month = 10, day = 31),

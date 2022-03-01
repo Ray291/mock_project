@@ -95,7 +95,7 @@ def read_enity(entity, schema, Store_Date, delimiter='\t', header='True'):
 def updateUser():
     user = read_enity("users", User_Schema, Store_Date)
     print("Load users succsessfully")
-    user.write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/user/"+Store_Date)
+    user.coalesce(1).write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/user/"+Store_Date)
     print("Write users to datalake successfully!")
     user = (user.withColumn("updatedTime", date_trunc("second", col("updatedTime"))).withColumn("birthdate", to_date(col("birthdate"))) )
     w = Window.partitionBy(user.userid).orderBy(user.updatedTime.desc())
@@ -157,7 +157,7 @@ def updateTransactions():
     print("Load Transactions succsessfully")
     transactions = transactions.filter("transStatus = 1").withColumn("transactionTime", date_trunc("second",col("transactionTime")))
     # transactions.show(10)
-    transactions.write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/transactions/" + Store_Date)
+    transactions.coalesce(1).write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/transactions/" + Store_Date)
     print("Write transactions to datalake successfully!")
 
     ############################### Payment ###################################################################
@@ -368,7 +368,7 @@ def updateTransactions():
 def updatePromotions():
     prom = read_enity("promotions", Promotions_Schema, Store_Date)
     print("LOAD promotion succsessfully")
-    prom.write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/promotion/" + Store_Date)
+    prom.coalesce(1).write.mode("append").parquet("/home/nam/airflow/dags/data/datalake/promotion/" + Store_Date)
     print("Write promotions to datalake successfully!")
 
     def read_enity_config(entity, schema,  delimiter='\t', header='True'):
@@ -385,8 +385,7 @@ def updatePromotions():
     userPromotion = (promotion.withColumn("actualExpire", when((col("campaignType")=="2") & 
                                                               (col("expireDate") > col("voucherExpire")), col("voucherExpire"))
                      .otherwise(col("expireDate")))
-    .withColumn("Expire", current_date() > col("actualExpire"))
-    .select("userid", "campaignID", "status", "Expire"))
+    .select("userid", "campaignID", "status", "actualExpire"))
     userPromotion = userPromotion.distinct()
     
     list_row_userPromotion = userPromotion.collect()
@@ -395,7 +394,7 @@ def updatePromotions():
         userid = row.__getitem__("userid")
         campaignID = row.__getitem__("campaignID")
         status = row.__getitem__("status")
-        Expire = row.__getitem__("Expire")
+        Expire = row.__getitem__("actualExpire")
 
         sql_query = f"SELECT * FROM userPromotion where userid = '{userid}' AND campaignID = '{campaignID}' "
         mycursor.execute(sql_query)
@@ -407,7 +406,7 @@ def updatePromotions():
             print("UPDATE",userid,campaignID)
             option = "UPDATE"
             queryUpdate = f"""
-            {option} userPromotion SET status=%s , Expire=%s
+            {option} userPromotion SET status=%s , actualExpire=%s
             WHERE userid = %s and campaignID = %s
             """
             mycursor.execute(queryUpdate, updateVal)
@@ -415,7 +414,7 @@ def updatePromotions():
         else: 
             option = "INSERT"
             queryInsert = f""" 
-            {option} INTO userPromotion(userid, campaignID, status, Expire) VALUES (%s,%s,%s,%s) """
+            {option} INTO userPromotion(userid, campaignID, status, actualExpire) VALUES (%s,%s,%s,%s) """
             mycursor.execute(queryInsert, insertVal)
             mydb.commit()
     for row in list_row_userPromotion:
